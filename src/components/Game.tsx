@@ -1,15 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import '../styles/Board.css';
-import { 
-  createGamePlaceholder, 
-  joinGamePlaceholder, 
-  getActiveGamesPlaceholder,
-  GameState 
-} from '../contracts/backendPlaceholder';
 import Board from './Board';
 import Board3D from './Board3D';
-
-type GameMode = 'active' | 'offline';
 import { Player, BoardSquare } from './Board';
 
 const createInitialBoard = (): BoardSquare[][] => {
@@ -64,33 +56,18 @@ const createInitialBoard = (): BoardSquare[][] => {
   return board;
 };
 
-const Game: React.FC = () => {
+const Game = (): JSX.Element => {
   const [gameState, setGameState] = useState<{
-    games: GameState[];
-    stake: number;
-    mode: GameMode;
     board: BoardSquare[][];
     currentPlayer: Player;
     selectedPiece: {row: number; col: number} | null;
   }>({
-    games: [],
-    stake: 0.1,
-    mode: 'offline',
     board: createInitialBoard(),
     currentPlayer: 'red',
     selectedPiece: null
   });
 
-  const loadGames = async () => {
-    const activeGames = await getActiveGamesPlaceholder();
-    setGameState(prev => ({ ...prev, games: activeGames }));
-  };
 
-  useEffect(() => {
-    if (gameState.mode === 'active') {
-      loadGames();
-    }
-  }, [gameState.mode]);
 
   const isValidMove = (fromRow: number, fromCol: number, toRow: number, toCol: number): boolean => {
     const piece = gameState.board[fromRow][fromCol];
@@ -155,7 +132,7 @@ const Game: React.FC = () => {
   };
 
   const handleSquareClick = (row: number, col: number) => {
-    if (gameState.mode === 'offline') {
+    // Handle piece selection and movement
       const clickedSquare = gameState.board[row][col];
       
       // If no piece is selected and clicked square has current player's piece
@@ -217,120 +194,35 @@ const Game: React.FC = () => {
     }
   };
 
-  const handleCreateGame = async () => {
-    try {
-      const newGame = await createGamePlaceholder(gameState.stake);
-      console.log("Game created:", newGame);
-      
-      // Reset game state
-      setGameState(prev => ({
-        ...prev,
-        board: createInitialBoard(),
-        currentPlayer: 'red',
-        selectedPiece: null
-      }));
-      
-      // Refresh games list
-      const activeGames = await getActiveGamesPlaceholder();
-      setGameState(prev => ({ ...prev, games: activeGames }));
-    } catch (error) {
-      console.error("Error creating game:", error);
-      alert("Failed to create game. Check console for details.");
-    }
-  };
-
-  const handleJoinGame = async (gameId: string) => {
-    try {
-      const joinedGame = await joinGamePlaceholder(gameId);
-      console.log("Joined game:", joinedGame);
-      alert("Game joined successfully! Check console for details.");
-      // Refresh games list
-      const activeGames = await getActiveGamesPlaceholder();
-      setGameState(prev => ({ ...prev, games: activeGames }));
-    } catch (error) {
-      console.error("Error joining game:", error);
-      alert("Failed to join game. Check console for details.");
-    }
+  const handleResetGame = () => {
+    setGameState({
+      board: createInitialBoard(),
+      currentPlayer: 'red',
+      selectedPiece: null
+    });
   };
 
   return (
     <div className="game-container">
-      <h2>Solana Checkers Game</h2>
-      
-      <div className="game-controls">
-        <div className="mode-selector">
-          <h3>Game Mode</h3>
-          <select
-            value={gameState.mode}
-            onChange={(e) => setGameState(prev => ({ ...prev, mode: e.target.value as GameMode }))}
-            style={{ marginBottom: '20px', padding: '5px' }}
-          >
-            <option value="offline">Offline (Local)</option>
-            <option value="active">Active (Online)</option>
-          </select>
-          {gameState.mode === 'offline' && (
-            <button
-              onClick={() => setGameState(prev => ({
-                ...prev,
-                board: createInitialBoard(),
-                currentPlayer: 'red',
-                selectedPiece: null
-              }))}
-              style={{ marginLeft: '10px', padding: '5px' }}
-            >
-              Reset Game
-            </button>
-          )}
+      <div className="game-header">
+        <h2>Local Checkers Game</h2>
+        <div className="game-info">
+          <div className="current-player">
+            Current Player: {gameState.currentPlayer === 'red' ? 'Red' : 'Black'}
+          </div>
+          <button onClick={handleResetGame} className="reset-button">
+            Reset Game
+          </button>
         </div>
-
-        {gameState.mode === 'active' && (
-          <>
-            <div className="create-game">
-              <h3>Create New Game</h3>
-              <input
-                type="number"
-                value={gameState.stake}
-                onChange={(e) => setGameState(prev => ({ ...prev, stake: Number(e.target.value) }))}
-                min="0.1"
-                max="10"
-                step="0.1"
-              />
-              <button onClick={handleCreateGame}>Create Game</button>
-            </div>
-
-            <div className="active-games">
-              <h3>Active Games</h3>
-              {gameState.games.length === 0 ? (
-                <p>No active games found</p>
-              ) : (
-                <ul>
-                  {gameState.games.map((game) => (
-                    <li key={game.id}>
-                      Game {game.id} - Stake: {game.stake} SOL
-                      {game.status === 'waiting' && (
-                        <button onClick={() => handleJoinGame(game.id)}>
-                          Join Game
-                        </button>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </>
-        )}
       </div>
 
       <div className="board-container">
-        {gameState.mode === 'offline' ? (
-          <Board3D
-            board={gameState.board}
-            currentPlayer={gameState.currentPlayer}
-            handleSquareClick={handleSquareClick}
-          />
-        ) : (
-          <Board board={gameState.board} currentPlayer={gameState.currentPlayer} />
-        )}
+        <Board3D
+          board={gameState.board}
+          selectedPiece={gameState.selectedPiece}
+          onSquareClick={handleSquareClick}
+          currentPlayer={gameState.currentPlayer}
+        />
       </div>
     </div>
   );
