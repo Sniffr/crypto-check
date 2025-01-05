@@ -5,8 +5,8 @@ import Game from './components/Game';
 function App() {
   return (
     <div>
-      <h1>Solana Checkers</h1>
-      <p>Decentralized checkers game on Solana blockchain</p>
+      <h1>Checkers</h1>
+      <p>Local 2-player checkers game</p>
       <Game />
     </div>
   );

@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import '../styles/Board.css';
-import Board from './Board';
+import '../styles/Game.css';
 import Board3D from './Board3D';
-import { Player, BoardSquare } from './Board';
+import { Player, BoardSquare } from './Board3D';
 
 const createInitialBoard = (): BoardSquare[][] => {
   // Create empty 8x8 board
@@ -132,64 +132,92 @@ const Game = (): JSX.Element => {
   };
 
   const handleSquareClick = (row: number, col: number) => {
-    // Handle piece selection and movement
-      const clickedSquare = gameState.board[row][col];
+    console.log('Handling square click:', { row, col });
+    const clickedSquare = gameState.board[row][col];
+    
+    // If no piece is selected and clicked square has current player's piece
+    if (!gameState.selectedPiece && clickedSquare.occupant === gameState.currentPlayer) {
+      const hasAvailableCapture = hasCaptures(gameState.currentPlayer);
+      const pieceHasCapture = 
+        isValidMove(row, col, row + 2, col + 2) || 
+        isValidMove(row, col, row + 2, col - 2) || 
+        isValidMove(row, col, row - 2, col + 2) || 
+        isValidMove(row, col, row - 2, col - 2);
       
-      // If no piece is selected and clicked square has current player's piece
-      if (!gameState.selectedPiece && clickedSquare.occupant === gameState.currentPlayer) {
-        // Only allow selection if there are no mandatory captures
-        // or if this piece has a capture available
-        if (!hasCaptures(gameState.currentPlayer) || isValidMove(row, col, row + 2, col + 2) || 
-            isValidMove(row, col, row + 2, col - 2) || isValidMove(row, col, row - 2, col + 2) || 
-            isValidMove(row, col, row - 2, col - 2)) {
-          setGameState(prev => ({ ...prev, selectedPiece: { row, col } }));
-        }
-      } 
-      // If a piece is selected, try to move it
-      else if (gameState.selectedPiece) {
-        const isCapturing = Math.abs(row - gameState.selectedPiece.row) === 2;
+      console.log('Piece selection:', {
+        hasAvailableCapture,
+        pieceHasCapture,
+        currentPlayer: gameState.currentPlayer
+      });
+      
+      // Only allow selection if there are no mandatory captures
+      // or if this piece has a capture available
+      if (!hasAvailableCapture || pieceHasCapture) {
+        setGameState(prev => ({ ...prev, selectedPiece: { row, col } }));
+      }
+    } 
+    // If a piece is selected, try to move it
+    else if (gameState.selectedPiece) {
+      const { row: fromRow, col: fromCol } = gameState.selectedPiece;
+      const isCapturing = Math.abs(row - fromRow) === 2;
+      
+      console.log('Attempting move:', {
+        from: { row: fromRow, col: fromCol },
+        to: { row, col },
+        isCapturing
+      });
+      
+      if (isValidMove(fromRow, fromCol, row, col)) {
+        console.log('Move is valid, updating board state');
+        // Create new board state
+        const newBoard = gameState.board.map(r => r.map(square => ({...square})));
         
-        if (isValidMove(gameState.selectedPiece.row, gameState.selectedPiece.col, row, col)) {
-          // Create new board state
-          const newBoard = gameState.board.map(row => [...row]);
-          
-          // Move piece
-          newBoard[row][col] = {
-            ...newBoard[gameState.selectedPiece.row][gameState.selectedPiece.col]
-          };
-          newBoard[gameState.selectedPiece.row][gameState.selectedPiece.col] = {
+        // Move piece
+        newBoard[row][col] = {
+          ...newBoard[fromRow][fromCol]
+        };
+        newBoard[fromRow][fromCol] = {
+          occupant: null,
+          isKing: false
+        };
+        
+        // Handle capture
+        if (isCapturing) {
+          const jumpedRow = fromRow + Math.sign(row - fromRow);
+          const jumpedCol = fromCol + Math.sign(col - fromCol);
+          newBoard[jumpedRow][jumpedCol] = {
             occupant: null,
             isKing: false
           };
-          
-          // Handle capture
-          if (isCapturing) {
-            const jumpedRow = gameState.selectedPiece.row + Math.sign(row - gameState.selectedPiece.row);
-            const jumpedCol = gameState.selectedPiece.col + Math.sign(col - gameState.selectedPiece.col);
-            newBoard[jumpedRow][jumpedCol] = {
-              occupant: null,
-              isKing: false
-            };
-          }
-          
-          // Check for king promotion
-          if ((gameState.currentPlayer === 'red' && row === 0) || 
-              (gameState.currentPlayer === 'black' && row === 7)) {
-            newBoard[row][col].isKing = true;
-          }
-          
-          setGameState(prev => ({
-            ...prev,
-            board: newBoard,
-            selectedPiece: null,
-            currentPlayer: !isCapturing || !hasCaptures(prev.currentPlayer) 
-              ? (prev.currentPlayer === 'red' ? 'black' : 'red')
-              : prev.currentPlayer
-          }));
-        } else {
-          // Invalid move, deselect piece
-          setGameState(prev => ({ ...prev, selectedPiece: null }));
         }
+        
+        // Check for king promotion
+        if ((gameState.currentPlayer === 'red' && row === 0) || 
+            (gameState.currentPlayer === 'black' && row === 7)) {
+          newBoard[row][col].isKing = true;
+        }
+        
+        // Check if the piece can make another capture
+        const canContinueCapturing = isCapturing && hasCaptures(gameState.currentPlayer);
+        
+        console.log('Updating game state:', {
+          isCapturing,
+          canContinueCapturing,
+          kingPromotion: newBoard[row][col].isKing
+        });
+        
+        setGameState(prev => ({
+          ...prev,
+          board: newBoard,
+          selectedPiece: canContinueCapturing ? { row, col } : null,
+          currentPlayer: !canContinueCapturing 
+            ? (prev.currentPlayer === 'red' ? 'black' : 'red')
+            : prev.currentPlayer
+        }));
+      } else {
+        console.log('Invalid move, deselecting piece');
+        // Invalid move, deselect piece
+        setGameState(prev => ({ ...prev, selectedPiece: null }));
       }
     }
   };
@@ -205,14 +233,23 @@ const Game = (): JSX.Element => {
   return (
     <div className="game-container">
       <div className="game-header">
-        <h2>Local Checkers Game</h2>
+        <h2>2-Player Checkers Game</h2>
         <div className="game-info">
-          <div className="current-player">
+          <div className={`current-player ${gameState.currentPlayer}`}>
             Current Player: {gameState.currentPlayer === 'red' ? 'Red' : 'Black'}
+            {gameState.selectedPiece && (
+              <div className="move-hint">
+                {hasCaptures(gameState.currentPlayer) 
+                  ? "Capture move available!" 
+                  : "Select a valid move"}
+              </div>
+            )}
           </div>
-          <button onClick={handleResetGame} className="reset-button">
-            Reset Game
-          </button>
+          <div className="game-controls">
+            <button onClick={handleResetGame} className="reset-button">
+              Reset Game
+            </button>
+          </div>
         </div>
       </div>
 
