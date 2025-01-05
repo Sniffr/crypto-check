@@ -1,0 +1,65 @@
+.board {
+  display: flex;
+  flex-direction: column;
+  width: 400px;
+  height: 400px;
+  border: 2px solid #333;
+  margin: 20px auto;
+}
+
+.board-row {
+  display: flex;
+  flex: 1;
+}
+
+.board-square {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+}
+
+.board-square.light {
+  background-color: #ccc;
+}
+
+.board-square.dark {
+  background-color: #444;
+}
+
+.piece {
+  width: 80%;
+  height: 80%;
+  border-radius: 50%;
+  position: relative;
+}
+
+.piece.red {
+  background-color: red;
+  border: 2px solid #aa0000;
+}
+
+.piece.black {
+  background-color: black;
+  border: 2px solid #333;
+}
+
+.piece.king::after {
+  content: 'K';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: white;
+  font-weight: bold;
+  font-size: 1.2em;
+}
+
+.piece.red.king::after {
+  color: #ffcccc;
+}
+
+.piece.black.king::after {
+  color: #666;
+}
